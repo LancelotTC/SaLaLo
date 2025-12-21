@@ -1,0 +1,10 @@
+/forecast
+/hist_forecast
+/historical
+/historical2
+/logs
+dags/__pycache__
+/__pycache__
+/dags/nodes/__pycache__
+/data
+/.local

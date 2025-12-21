@@ -9,32 +9,40 @@ from airflow.providers.standard.operators.python import PythonOperator
 from datetime import datetime
 
 from etl_utils import (
-    download_csv, append_to_fatalities, load_to_postgres,
-    create_ariadb_clean, create_fatalities_clean, create_workaccidents_clean,
-    create_dimensions_and_fact, min_test_star_schema, full_test_star_schema,
-    DB_CONFIG, CSV_URL, CSV_URLS_FATALITIES, download_and_extract_zip,
-    drop_fatalities_table, download_all_fatalities
+    download_csv,
+    append_to_fatalities,
+    load_to_postgres,
+    create_ariadb_clean,
+    create_fatalities_clean,
+    create_workaccidents_clean,
+    create_dimensions_and_fact,
+    min_test_star_schema,
+    full_test_star_schema,
+    DB_CONFIG,
+    CSV_URL,
+    CSV_URLS_FATALITIES,
+    download_and_extract_zip,
+    drop_fatalities_table,
+    download_all_fatalities,
 )
 
 # ----------------------------------------------------------------------
 # Safe wrapper functions
 # ----------------------------------------------------------------------
 
+
 def task_load_ariadb():
     print("=== Loading ARIADB ===")
     csv_text = download_csv(CSV_URL, "ariadb.csv")
-    load_to_postgres(
-        csv_content=csv_text,
-        table_name=DB_CONFIG["ariadb_table"],
-        skiprows=7,
-        sep=";"
-    )
+    load_to_postgres(csv_content=csv_text, table_name=DB_CONFIG["ariadb_table"], skiprows=7, sep=";")
     print("=== ARIADB loaded ===")
+
 
 def task_create_ariadb_clean():
     print("=== Creating ARIADB_CLEAN ===")
     create_ariadb_clean()
     print("=== ARIADB_CLEAN done ===")
+
 
 def task_download_fatalities():
     print("=== Downloading all fatalities CSVs ===")
@@ -44,10 +52,12 @@ def task_download_fatalities():
         print(f"  - {f}")
     print("=== Fatalities download done ===")
 
+
 def task_drop_fatalities():
     print("=== Dropping fatalities table if exists ===")
     drop_fatalities_table()
     print("=== Drop completed ===")
+
 
 def task_load_fatalities(url, idx):
     print(f"=== Loading fatalities part {idx} ===")
@@ -55,25 +65,25 @@ def task_load_fatalities(url, idx):
     append_to_fatalities(csv_text, sep=",")
     print(f"=== fatalities_{idx} appended ===")
 
+
 def task_create_fatalities_clean():
     print("=== Creating FATALITIES_CLEAN ===")
     create_fatalities_clean()
     print("=== FATALITIES_CLEAN done ===")
 
+
 def task_load_workaccidents():
     print("=== Loading Workaccidents ===")
     csv_text = download_and_extract_zip()
-    load_to_postgres(
-        csv_content=csv_text,
-        table_name=DB_CONFIG["workaccidents_table"],
-        sep=","
-    )
+    load_to_postgres(csv_content=csv_text, table_name=DB_CONFIG["workaccidents_table"], sep=",")
     print("=== WORKACCIDENTS loaded ===")
+
 
 def task_create_workaccidents_clean():
     print("=== Creating WORKACCIDENTS_CLEAN ===")
     create_workaccidents_clean()
     print("=== WORKACCIDENTS_CLEAN done ===")
+
 
 # ----------------------------------------------------------------------
 # DAG
@@ -88,63 +98,34 @@ with DAG(
 ) as dag:
 
     # --- ARIADB ---
-    t1_load_ariadb = PythonOperator(
-        task_id="load_ariadb",
-        python_callable=task_load_ariadb
-    )
-    t2_ariadb_clean = PythonOperator(
-        task_id="ariadb_clean",
-        python_callable=task_create_ariadb_clean
-    )
+    t1_load_ariadb = PythonOperator(task_id="load_ariadb", python_callable=task_load_ariadb)
+    t2_ariadb_clean = PythonOperator(task_id="ariadb_clean", python_callable=task_create_ariadb_clean)
 
     # --- Download Fatalities ---
-    t_download_fatalities = PythonOperator(
-        task_id="download_fatalities",
-        python_callable=task_download_fatalities
-    )
+    t_download_fatalities = PythonOperator(task_id="download_fatalities", python_callable=task_download_fatalities)
 
     # --- Fatalities Load (existing tasks unchanged) ---
-    t0_drop_fatalities = PythonOperator(
-        task_id="drop_fatalities",
-        python_callable=task_drop_fatalities
-    )
+    t0_drop_fatalities = PythonOperator(task_id="drop_fatalities", python_callable=task_drop_fatalities)
 
     t3_fatalities = []
     for i, url in enumerate(CSV_URLS_FATALITIES, start=1):
         t = PythonOperator(
-            task_id=f"load_fatalities_{i}",
-            python_callable=lambda u=url, idx=i: task_load_fatalities(u, idx)
+            task_id=f"load_fatalities_{i}", python_callable=lambda u=url, idx=i: task_load_fatalities(u, idx)
         )
         t3_fatalities.append(t)
 
-    t4_fatalities_clean = PythonOperator(
-        task_id="fatalities_clean",
-        python_callable=task_create_fatalities_clean
-    )
+    t4_fatalities_clean = PythonOperator(task_id="fatalities_clean", python_callable=task_create_fatalities_clean)
 
     # --- Workaccidents ---
-    t5_load_workaccidents = PythonOperator(
-        task_id="load_workaccidents",
-        python_callable=task_load_workaccidents
-    )
+    t5_load_workaccidents = PythonOperator(task_id="load_workaccidents", python_callable=task_load_workaccidents)
     t6_workaccidents_clean = PythonOperator(
-        task_id="workaccidents_clean",
-        python_callable=task_create_workaccidents_clean
+        task_id="workaccidents_clean", python_callable=task_create_workaccidents_clean
     )
 
     # --- Star Schema ---
-    t7_star_schema = PythonOperator(
-        task_id="create_star_schema",
-        python_callable=create_dimensions_and_fact
-    )
-    t8_min_test = PythonOperator(
-        task_id="min_test_star_schema",
-        python_callable=min_test_star_schema
-    )
-    t9_full_test = PythonOperator(
-        task_id="full_test_star_schema",
-        python_callable=full_test_star_schema
-    )
+    t7_star_schema = PythonOperator(task_id="create_star_schema", python_callable=create_dimensions_and_fact)
+    t8_min_test = PythonOperator(task_id="min_test_star_schema", python_callable=min_test_star_schema)
+    t9_full_test = PythonOperator(task_id="full_test_star_schema", python_callable=full_test_star_schema)
 
     # -----------------------
     # DAG dependencies
