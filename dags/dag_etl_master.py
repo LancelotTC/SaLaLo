@@ -6,6 +6,7 @@
 # ETL Master: dag_etl_master.py
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.bash import BashOperator
 from datetime import datetime
 
 from etl_utils import (
@@ -31,10 +32,18 @@ from etl_utils import (
 # ----------------------------------------------------------------------
 
 
+def task_download_ariadb():
+    download_csv(CSV_URL, "ariadb.csv")
+
+
 def task_load_ariadb():
     print("=== Loading ARIADB ===")
-    csv_text = download_csv(CSV_URL, "ariadb.csv")
+
+    with open("/opt/airflow/data/ariadb.csv", "r", encoding="cp1252") as f:
+        csv_text = f.read()
+
     load_to_postgres(csv_content=csv_text, table_name=DB_CONFIG["ariadb_table"], skiprows=7, sep=";")
+
     print("=== ARIADB loaded ===")
 
 
@@ -98,6 +107,12 @@ with DAG(
 ) as dag:
 
     # --- ARIADB ---
+    # t0_download_ariadb = PythonOperator(task_id="download_ariadb", python_callable=task_download_ariadb)
+    t0_download_ariadb = BashOperator(
+        task_id="download_ariadb",
+        bash_command=f"curl -L -o /opt/airflow/data/ariadb.csv '{CSV_URL}'",
+    )
+
     t1_load_ariadb = PythonOperator(task_id="load_ariadb", python_callable=task_load_ariadb)
     t2_ariadb_clean = PythonOperator(task_id="ariadb_clean", python_callable=task_create_ariadb_clean)
 
@@ -132,7 +147,7 @@ with DAG(
     # -----------------------
 
     # ARIADB
-    t1_load_ariadb >> t2_ariadb_clean
+    t0_download_ariadb >> t1_load_ariadb >> t2_ariadb_clean
 
     # Fatalities: download → drop → load_1 → ... → clean
     t2_ariadb_clean >> t_download_fatalities >> t0_drop_fatalities
