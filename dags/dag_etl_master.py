@@ -32,10 +32,6 @@ from etl_utils import (
 # ----------------------------------------------------------------------
 
 
-def task_download_ariadb():
-    download_csv(CSV_URL, "ariadb.csv")
-
-
 def task_load_ariadb():
     print("=== Loading ARIADB ===")
 
@@ -107,7 +103,6 @@ with DAG(
 ) as dag:
 
     # --- ARIADB ---
-    # t0_download_ariadb = PythonOperator(task_id="download_ariadb", python_callable=task_download_ariadb)
     t0_download_ariadb = BashOperator(
         task_id="download_ariadb",
         bash_command=f"curl -L -o /opt/airflow/data/ariadb.csv '{CSV_URL}'",

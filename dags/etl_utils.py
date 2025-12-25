@@ -245,8 +245,8 @@ def load_to_postgres(csv_content, table_name, skiprows=0, sep=";"):
         VALUES ({", ".join(["%s"] * len(df.columns))})
     """
 
-    for _, row in df.iterrows():
-        cursor.execute(insert_sql, [None if pd.isna(v) else v for v in row.values])
+    values = df.where(pd.notna(df), None).values.tolist()
+    cursor.executemany(insert_sql, values)
 
     conn.commit()
     cursor.close()
